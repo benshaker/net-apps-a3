@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # led.py
 import RPi.GPIO as GPIO
+from zeroconf import ServiceBrowser, Zeroconf
 
 # Suppress Warnings
 GPIO.setwarnings(False)
@@ -65,3 +66,21 @@ def setLEDY(intensity):
 	p.ChangeDutyCycle(intensity)
 	w.ChangeDutyCycle(intensity)
 	m.ChangeDutyCycle(0)
+	
+	
+class MyListener(object):  
+    def remove_service(self, zeroconf, type, name):
+        
+
+    def add_service(self, zeroconf, type, name):
+		"""
+        info = zeroconf.get_service_info(type, name)
+        # print name, info.get_name(), info.server,
+        print name, info
+		"""
+
+if __name__ == "__main__":
+	zeroconf = Zeroconf()
+	listener = MyListener()
+	browser = ServiceBrowser(zeroconf, "", listener)
+	# ?
