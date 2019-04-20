@@ -5,6 +5,7 @@ import json
 import pymongo
 import requests
 
+from socket import inet_ntoa
 from six.moves import input
 from zeroconf import ServiceBrowser, Zeroconf
 from servicesKeys import canvasAPIKey, canvasCourseID
@@ -229,17 +230,16 @@ class MyListener(object):
 
     def add_service(self, zeroconf, type, name):
         info = zeroconf.get_service_info(type, name)
-        byte_address = info.address.decode('utf-8')
-        ipv4_address = '.'.join(str(ord(i)) for i in byte_address)
-        colors_array = info.properties[b'colors'].decode('utf-8').split(',')
-
         if "led_rpi_13" not in name:
-            return
+            pass
+        elif "led_rpi_13" in name:
+            ipv4_address = inet_ntoa(info.address)
+            colors_array = info.properties[b'colors'].decode('utf-8').split(',')
 
-        self.ip = ipv4_address
-        self.port = info.port
-        self.colors = colors_array
-        print("Service added", self.ip)
+            self.port = info.port
+            self.ip = ipv4_address
+            self.colors = colors_array
+            print("Service added with addresss", self.ip)
 
     def getColors(self):
         return self.colors
