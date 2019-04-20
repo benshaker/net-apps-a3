@@ -140,7 +140,9 @@ def led_get():
     if None not in (ip, port, colors_allowed):
         pass
     else:
-        return make_response(jsonify({'error': 'LED RPi unavailable'}), 400)
+        return make_response(jsonify({
+            'error': 'LED RPi appears to be offline. Please try again.'
+        }), 502)
 
     # send our request to LED RPi via its API
     try:
@@ -148,7 +150,7 @@ def led_get():
         res_body = r.json()
     except:
         return make_response(jsonify({
-            'error': 'LED RPi appears to be offline. Please try again.'
+            'error': 'LED RPi service is unavailable. Please try again.'
         }), 503)
 
     # pass this response to the end user
@@ -170,7 +172,9 @@ def led_put():
     if None not in (ip, port, colors_allowed):
         pass
     else:
-        return make_response(jsonify({'error': 'LED RPi unavailable'}), 400)
+        return make_response(jsonify({
+            'error': 'LED RPi appears to be offline. Please try again.'
+        }), 502)
 
     # handle cases where no params are passed from end user req
     status, color, intensity = getLEDParams(request.args, request.json)
@@ -198,10 +202,15 @@ def led_put():
         queryString += "intensity=" + str(intensity)
 
     # send our LED change request to the LED RPi
-    r = requests.put(
+    try:
+        r = requests.put(
         'http://' + str(ip) + ':' + str(port) +
         '/LED/change' + queryString)
-    json_res = r.json()
+        json_res = r.json()
+    except:
+        return make_response(jsonify({
+            'error': 'LED RPi service is unavailable. Please try again.'
+        }), 503)
 
     # TODO: pass through LED RPi success/error to end user
     return make_response(jsonify({'success': 'yayyay'}), 201)
