@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 # services.py
 
+import requests, json
+
+from six.moves import input
+from zeroconf import ServiceBrowser, Zeroconf
+
 from servicesKeys import canvasAPIKey, canvasCourseID
 
 from flask_httpauth import HTTPBasicAuth
@@ -9,35 +14,26 @@ auth = HTTPBasicAuth()
 from flask import Flask, jsonify, make_response, request, abort
 app = Flask(__name__)
 
-import requests, json
-
-from six.moves import input
-from zeroconf import ServiceBrowser, Zeroconf
-
-LED_PI_IP = None
-LED_PI_PORT = None
-COLORS_ALLOWED = None
-
-import pymongo
-client = pymongo.MongoClient("mongodb://localhost:27017/")
-db = client.database
-collection = db.creds
-collection.insert_many(
-		[{"username": "admin",
-		"password": "admin"},
-		{"username": "alice",
-		"password": "dogsRcool"},
-		{"username": "bob",
-		"password": "Baseb@ll!"}]
-)
+# import pymongo
+# client = pymongo.MongoClient("mongodb://localhost:27017/")
+# db = client.database
+# collection = db.creds
+# collection.insert_many(
+# 		[{"username": "admin",
+# 		"password": "admin"},
+# 		{"username": "alice",
+# 		"password": "dogsRcool"},
+# 		{"username": "bob",
+# 		"password": "Baseb@ll!"}]
+# )
 
 # BEGIN AUTH
 
 @auth.get_password
 def get_password(username):
-	auth_pair = collection.find_one({"username": username})
-	if auth_pair:
-		return auth_pair["password"]
+	# auth_pair = collection.find_one({"username": username})
+	# if auth_pair:
+	# 	return auth_pair["password"]
 	return None
 
 @auth.error_handler
@@ -47,7 +43,7 @@ def unauthorized():
 # BEGIN APP
 
 @app.route("/")
-# @auth.login_required
+@auth.login_required
 def root():
     return jsonify({'error': 'No endpoint chosen. See /info'})
 
@@ -94,7 +90,7 @@ def file_download():
 
     return make_response(jsonify({'success': msg}), 201)
 
-@app.route("/LED")
+@app.route("/LED/info")
 # @auth.login_required
 def led_info():
     return jsonify({'success': '/LED accepts the following params: '+
@@ -107,15 +103,23 @@ def led_info():
 def led_modify():
     #?status=on&color=red&intensity=50
     status, color, intensity = getLEDParams(request.args, request.json)
+    print(status, color, intensity)
     if None not in (status, color, intensity):
         pass
     else:
         return jsonify({'error': '/LED requires at least one param.' +
                             'See /LED/info' })
+    print("what?",listener.getColors())
 
-    if color not in COLORS_ALLOWED:
+    ip = listener.getIP()
+    port = listener.getPort()
+    colors_allowed = listener.getColors()
+
+    print("testing",colors_allowed)
+
+    if color not in colors_allowed:
         return jsonify({'error': '/LED only accepts the following colors: ' +
-                            str(COLORS_ALLOWED) })
+                            str(colors_allowed) })
 
     queryString = "?"
     if intensity is not None and intensity in ("on", "off"):
@@ -125,9 +129,7 @@ def led_modify():
     if intensity is not None and intensity in range(0, 101):
         queryString += "intensity=" + str(intensity)
 
-    LED_PI_IP = None
-    LED_PI_PORT = None
-    r = requests.put(LED_PI_IP + ':' + LED_PI_PORT + '/' + queryString)
+    r = requests.put(str(ip) + ':' + str(port) + '/' + queryString)
     json_res = r.json()
 
 def getLEDParams(args, json):
@@ -214,10 +216,15 @@ def not_found(error):
     return make_response(jsonify({'error': 'Not found'}), 404)
 
 class MyListener(object):
+    def __init__(self):
+        self.ip = None
+        self.port = None
+        self.colors = None
+
     def remove_service(self, zeroconf, type, name):
-        LED_PI_IP = None
-        LED_PI_PORT = None
-        COLORS_ALLOWED = None
+        self.ip = None
+        self.port = None
+        self.colors = None
         print("Service %s removed" % (name,))
 
     def add_service(self, zeroconf, type, name):
@@ -229,12 +236,21 @@ class MyListener(object):
         if "led_rpi_13" not in name:
             return
 
-        LED_PI_IP = ipv4_address
-        LED_PI_PORT = info.port
-        COLORS_ALLOWED = colors_array
-        print("Service added", LED_PI_IP)
+        self.ip = ipv4_address
+        self.port = info.port
+        self.colors = colors_array
+        print("Service added", self.ip)
+
+    def getColors(self):
+        return self.colors
+
+    def getPort(self):
+        return self.port
+
+    def getIP(self):
+        return self.ip
 
 if __name__ == "__main__":
-    browser = ServiceBrowser(Zeroconf(), "_http._tcp.local.", MyListener())
-    app.run(host='0.0.0.0', port=8080, debug=True)
-
+    listener = MyListener()
+    browser = ServiceBrowser(Zeroconf(), "_http._tcp.local.", listener)
+    app.run(host='0.0.0.0', port=8080, debug=False)
