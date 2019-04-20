@@ -93,25 +93,28 @@ def change_LED():
 	COLOR = request.json['color']
 	INTENSITY = int(request.json['intensity'])
 	
-	if STATE == 'on':
-		if COLOR == 'white':
-			setLEDW()
-		elif COLOR == 'red':
-			setLEDR()
-		elif COLOR == 'green':
-			setLEDG()
-		elif COLOR == 'blue':
-			setLEDB()
-		elif COLOR == 'cyan':
-			setLEDC()
-		elif COLOR == 'magenta':
-			setLEDM()
-		elif COLOR == 'yellow':
-			setLEDY()
+	if INTENSITY <= 100 and INTENSITY >= 0:	
+		if STATE == 'on':
+			if COLOR == 'white':
+				setLEDW()
+			elif COLOR == 'red':
+				setLEDR()
+			elif COLOR == 'green':
+				setLEDG()
+			elif COLOR == 'blue':
+				setLEDB()
+			elif COLOR == 'cyan':
+				setLEDC()
+			elif COLOR == 'magenta':
+				setLEDM()
+			elif COLOR == 'yellow':
+				setLEDY()
+			else:
+				abort(404)
+		elif STATE == 'off':
+			setLEDOFF()
 		else:
 			abort(404)
-	elif STATE == 'off':
-		setLEDOFF()
 	else:
 		abort(404)
 	return 200
@@ -132,4 +135,8 @@ if __name__ == "__main__":
 	zeroconf = Zeroconf()
 	listener = MyListener()
 	browser = ServiceBrowser(zeroconf, "", listener)
+	try:  
+		input("Press enter to exit...\n\n")
+	finally:  
+		zeroconf.close()
 	# ?
