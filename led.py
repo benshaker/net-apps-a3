@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # led.py
 import RPi.GPIO as GPIO
-from flask import flask, request
+from flask import Flask, request
 from zeroconf import ServiceBrowser, Zeroconf
 
 app = Flask(__name__)
@@ -79,9 +79,9 @@ def setLEDY():
 @app.route("/LED/info", methods=['GET'])
 def send_info():
 	info = {
-		'status' = ON,
-		'color' = COLOR,
-		'intensity' = str(INTENSITY)
+		'status': STATE,
+		'color': COLOR,
+		'intensity': str(INTENSITY)
 	}
 	return jsonify(info), 200
 
@@ -165,11 +165,11 @@ class MyListener(object):
     def add_service(self, zeroconf, type, name):
         info = zeroconf.get_service_info(type, name)
         # print name, info.get_name(), info.server,
-        print name, info
+        print(name, info)
 		
 
 if __name__ == "__main__":
-	app.run(debug=True)
+	app.run(debug=False)
 	zeroconf = Zeroconf()
 	listener = MyListener()
 	browser = ServiceBrowser(zeroconf, "", listener)
