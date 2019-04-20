@@ -18,6 +18,19 @@ LED_PI_IP = None
 LED_PI_PORT = None
 COLORS_ALLOWED = None
 
+import pymongo
+client = pymongo.MongoClient("mongodb://localhost:27017/")
+db = client.database
+collection = db.creds
+collection.insert_many(
+		[{"username": "admin",
+		"password": "admin"},
+		{"username": "alice",
+		"password": "dogsRcool"},
+		{"username": "bob",
+		"password": "Baseb@ll!"}]
+)
+
 # BEGIN AUTH
 
 @auth.get_password
