@@ -220,8 +220,10 @@ def change_LED():
         COLOR = None
         setLEDOFF()
     elif newSTATE is None:
-        if STATE == 'off':
-            abort(404)
+        if STATE == 'on':
+            pass
+        elif STATE == 'off':
+            return make_response(jsonify({'error': 'LED cannot be updated in an \'off\' state'}), 200)
 
         if newINTENSITY is not None:
             INTENSITY = newINTENSITY
@@ -229,9 +231,9 @@ def change_LED():
             COLOR = newCOLOR
         LED_Branch()
     else:
-        abort(404)
+        return make_response(jsonify({'error': 'Invalid combination attempted'}), 400)
 
-    return make_response(jsonify({'success': 'yay'})), 200
+    return make_response(jsonify({'success': 'LED updated successfully'}), 200)
 
 
 if __name__ == "__main__":
