@@ -11,13 +11,27 @@ app = Flask(__name__)
 
 import requests, json
 
+import pymongo
+client = pymongo.MongoClient("mongodb://localhost:27017/")
+db = client.database
+collection = db.creds
+collection.insert_many(
+		[{"username": "admin",
+		"password": "admin"},
+		{"username": "alice",
+		"password": "dogsRcool"},
+		{"username": "bob",
+		"password": "Baseb@ll!"}]
+)
+
 # BEGIN AUTH
 
 @auth.get_password
 def get_password(username):
-    if username == 'ben':
-        return 'jammin'
-    return None
+	auth_pair = collection.find_one({"username": username})
+	if auth_pair:
+		return auth_pair["password"]
+	return None
 
 @auth.error_handler
 def unauthorized():
