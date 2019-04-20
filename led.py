@@ -267,6 +267,9 @@ def getLEDParams(args, json):
     else:
         intensity = args['intensity']
 
+    if intensity is not None:
+        intensity = int(intensity)
+
     return status, color, intensity
 
 
