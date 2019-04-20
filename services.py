@@ -48,14 +48,14 @@ def root():
     return jsonify({'error': 'No endpoint chosen. See /info'})
 
 @app.route("/info")
-# @auth.login_required
+@auth.login_required
 def root_info():
     return jsonify({'success': 'Choose from the following enpoints: '+
                                 '/Canvas or '+
                                 '/LED'})
 
 @app.route("/Canvas")
-# @auth.login_required
+@auth.login_required
 def file_download():
     if not request.args or not 'file' in request.args:
         return jsonify({'error': 'No search term provided (use ?file=).'})
@@ -91,7 +91,7 @@ def file_download():
     return make_response(jsonify({'success': msg}), 201)
 
 @app.route("/LED/info")
-# @auth.login_required
+@auth.login_required
 def led_info():
     return jsonify({'success': '/LED accepts the following params: '+
                             'status (optional) '+
@@ -99,7 +99,7 @@ def led_info():
                             'intensity (optional)'})
 
 @app.route("/LED")
-# @auth.login_required
+@auth.login_required
 def led_modify():
     #?status=on&color=red&intensity=50
     status, color, intensity = getLEDParams(request.args, request.json)
