@@ -14,27 +14,27 @@ auth = HTTPBasicAuth()
 from flask import Flask, jsonify, make_response, request, abort
 app = Flask(__name__)
 
-# import pymongo
-# client = pymongo.MongoClient("mongodb://localhost:27017/")
-# db = client.database
-# collection = db.creds
-# collection.insert_many(
-# 		[{"username": "admin",
-# 		"password": "admin"},
-# 		{"username": "alice",
-# 		"password": "dogsRcool"},
-# 		{"username": "bob",
-# 		"password": "Baseb@ll!"}]
-# )
+import pymongo
+client = pymongo.MongoClient("mongodb://localhost:27017/")
+db = client.database
+collection = db.creds
+collection.insert_many(
+    [{"username": "admin",
+    "password": "admin"},
+    {"username": "alice",
+    "password": "dogsRcool"},
+    {"username": "bob",
+    "password": "Baseb@ll!"}]
+)
 
 # BEGIN AUTH
 
 @auth.get_password
 def get_password(username):
-	# auth_pair = collection.find_one({"username": username})
-	# if auth_pair:
-	# 	return auth_pair["password"]
-	return None
+    auth_pair = collection.find_one({"username": username})
+    if auth_pair:
+        return auth_pair["password"]
+    return None
 
 @auth.error_handler
 def unauthorized():
@@ -102,70 +102,71 @@ def led_info():
 @auth.login_required
 def led_modify():
     #?status=on&color=red&intensity=50
+    # TO DO: HANDLE NO PARAMS AT ALL
     status, color, intensity = getLEDParams(request.args, request.json)
     print(status, color, intensity)
     if None not in (status, color, intensity):
         pass
     else:
-        return jsonify({'error': '/LED requires at least one param.' +
-                            'See /LED/info' })
-    print("what?",listener.getColors())
+        return make_response(jsonify({'error': '/LED requires at least one param.' +
+                            'See /LED/info' }), 400)
 
     ip = listener.getIP()
     port = listener.getPort()
     colors_allowed = listener.getColors()
-
-    print("testing",colors_allowed)
 
     if color not in colors_allowed:
         return jsonify({'error': '/LED only accepts the following colors: ' +
                             str(colors_allowed) })
 
     queryString = "?"
-    if intensity is not None and intensity in ("on", "off"):
-        queryString += "status=" + str(status)
+    if status is not None and status in ("on", "off"):
+        queryString += "status=" + str(status) + '&'
     if color is not None:
-        queryString += "color=" + str(color)
-    if intensity is not None and intensity in range(0, 101):
-        queryString += "intensity=" + str(intensity)
+        queryString += "color=" + str(color) + '&'
+    if intensity is not None and int(intensity) in range(0, 101):
+        queryString += "intensity=" + str(intensity) + '&'
 
-    r = requests.put(str(ip) + ':' + str(port) + '/' + queryString)
+    r = requests.put('http://' + str(ip) + ':' + str(port) + '/LED/change' + queryString)
     json_res = r.json()
+    
+    return make_response(jsonify({'success': 'yayyay'}), 201)
+    
 
 def getLEDParams(args, json):
     status, color, intensity = None, None, None
-    if not request.args or not 'status' in request.args:
+    if not args or not 'status' in args:
         return jsonify({'error': 'No params provided.'})
     else:
-        status = request.args['status']
+        status = args['status']
 
     if status is None:
-        if not request.json or not 'status' in request.json:
+        if not json or not 'status' in json:
             return jsonify({'error': 'No params provided.'})
         else:
-            status = request.json['status']
+            status = json['status']
 
-    if not request.args or not 'color' in request.args:
+    if not args or not 'color' in args:
         return jsonify({'error': 'No params provided.'})
     else:
-        color = request.args['color']
+        color = args['color']
 
     if color is None:
-        if not request.json or not 'color' in request.json:
+        if not json or not 'color' in json:
             return jsonify({'error': 'No params provided.'})
         else:
-            color = request.json['color']
+            color = json['color']
 
-    if not request.args or not 'intensity' in request.args:
+    if not args or not 'intensity' in args:
         return jsonify({'error': 'No params provided.'})
     else:
-        intensity = request.args['intensity']
+        intensity = args['intensity']
 
     if intensity is None:
-        if not request.json or not 'intensity' in request.json:
+        if not json or not 'intensity' in json:
             return jsonify({'error': 'No params provided.'})
         else:
-            intensity = request.json['intensity']
+            intensity = json['intensity']
 
     return status, color, intensity
 
