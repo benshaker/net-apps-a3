@@ -20,6 +20,7 @@ app = Flask(__name__)
 # BEGIN AUTH
 
 
+# this helper fn compares provided usernames & known passwords
 @auth.get_password
 def get_password(username):
     auth_pair = collection.find_one({"username": username})
@@ -28,9 +29,13 @@ def get_password(username):
     return None
 
 
+# this helper fn handles unauthorized auth. attempts
 @auth.error_handler
 def unauthorized():
-    return make_response(jsonify({'error': 'Unauthorized access'}), 401)
+    return make_response(jsonify({
+        'error': 'Unauthorized access attempt. ' +
+        'Please provide valid credentials with your query.'
+    }), 401)
 
 # BEGIN APP
 
@@ -38,33 +43,49 @@ def unauthorized():
 @app.route("/")
 # @auth.login_required
 def root_get():
-    return jsonify({'error': 'No endpoint chosen. See /info'})
+    return make_response(jsonify({
+        'success': 'Root is not a valid route. See /info'
+    }), 200)
 
 
 @app.route("/info")
 # @auth.login_required
-def root_info():
-    return jsonify({
-        'success': 'Choose from the following endpoints: ' +
+def root_info_get():
+    return make_response(jsonify({
+        'success': 'Choose from the following routes: ' +
         '/Canvas or ' +
         '/LED'
-        })
+    }), 200)
+
+
+@app.route("/Canvas/info")
+# @auth.login_required
+def canvas_info_get():
+    return make_response(jsonify({
+        'success': 'GET /Canvas accepts the following params: ' +
+        '\'file\': file name search term (required)'
+    }), 200)
 
 
 @app.route("/Canvas")
 @auth.login_required
-def file_get():
+def canvas_get():
     if not request.args or 'file' not in request.args:
-        return jsonify({'error': 'No search term provided (use ?file=).'})
+        return make_response(jsonify({
+            'error': 'No search term provided (use ?file=)'}), 400)
     else:
         searchTerm = request.args['file']
 
+    # if param not found in query string, check the data object
     if searchTerm is None:
         if not request.json or 'file' not in request.json:
-            return jsonify({'error': 'No search term provided.'})
+            return make_response(jsonify({
+                'error': 'No search term provided. (use ?file=)'}), 400)
         else:
             searchTerm = request.json['file']
 
+    # send our request to Canvas via their API
+    # sort results by "name is matching" and "most recently created"
     r = requests.get(
         'https://vt.instructure.com/api/v1/courses/' +
         canvasCourseID + '/files' +
@@ -74,68 +95,75 @@ def file_get():
         '&order=' + 'desc')
     json_res = r.json()
 
+    # handle the Canvas response
     if not json_res:
         return make_response(jsonify({
-            'error': 'No matching files found.'
-            }), 404)
-    if json_res:
+            'error': 'No file names matched your search term.'
+        }), 404)
+    elif json_res:
+        # if multiple results, we choose the most recently created
         doc = json_res[0]
-
         doc_name = doc["display_name"]
         doc_url = doc["url"]
         r = requests.get(doc_url)
+
+        # download file to the working directory
         open(doc_name, 'wb').write(r.content)
 
-        msg = 'Saved the document titled \'' + doc_name + '\' locally on the Servives RPi.'
-
-    return make_response(jsonify({'success': msg}), 201)
+    return make_response(jsonify({
+        'success': 'Saved the document titled \'' + doc_name +
+        '\' locally on the Services RPi.'}), 201)
 
 
 @app.route("/LED/info")
 # @auth.login_required
-def led_info():
-    return jsonify({
-        'success': 'Choose from the following endpoints: ' +
-        '/LED (via GET or PUT). ' +
+def led_info_get():
+    colors_allowed = listener.getColors()
+    return make_response(jsonify({
+        'success': 'GET /LED accepts no params. ' +
         'PUT /LED accepts the following params: ' +
-        'status (optional) ' +
-        'color (optional) ' +
-        'intensity (optional)'})
+        '\'status\': [\'on\', \'off\'] (optional), ' +
+        '\'color\': ' + str(colors_allowed) + ' (optional), ' +
+        '\'intensity\': int(0 to 100) (optional)'}), 200)
 
 
 @app.route("/LED", methods=['GET'])
 @auth.login_required
 def led_get():
+    # get the latest information about the LED RPi
     ip = listener.getIP()
     port = listener.getPort()
     colors_allowed = listener.getColors()
 
-    # Handle cases where LED RPi and its service is not available.
+    # Handle cases where LED RPi or its service is not available.
     if None not in (ip, port, colors_allowed):
         pass
     else:
         return make_response(jsonify({'error': 'LED RPi unavailable'}), 400)
 
+    # send our request to LED RPi via its API
     r = requests.put('http://' + str(ip) + ':' + str(port) + '/LED/info')
     json_res = r.json()
 
+    # pass this response to the end user
     return make_response(json_res, 201)
 
 
 @app.route("/LED", methods=['PUT'])
 @auth.login_required
 def led_put():
+    # get the latest information about the LED RPi
     ip = listener.getIP()
     port = listener.getPort()
     colors_allowed = listener.getColors()
 
-    # Handle cases where LED RPi and its service is not available.
+    # handle cases where LED RPi and its service is not available.
     if None not in (ip, port, colors_allowed):
         pass
     else:
         return make_response(jsonify({'error': 'LED RPi unavailable'}), 400)
 
-    # TO DO: HANDLE NO PARAMS AT ALL
+    # handle cases where no params are passed from end user req
     status, color, intensity = getLEDParams(request.args, request.json)
     print(status, color, intensity)
     if None not in (status, color, intensity):
@@ -145,11 +173,13 @@ def led_put():
             'error': '/LED requires at least one param.' +
             'See /LED/info'}), 400)
 
+    # handle cases where the color request is not available
     if color not in colors_allowed:
-        return jsonify({
+        return make_response(jsonify({
             'error': '/LED only accepts the following colors: ' +
-            str(colors_allowed)})
+            str(colors_allowed)}), 400)
 
+    # build the query string to be sent to the LED RPi
     queryString = "?"
     if status is not None and status in ("on", "off"):
         queryString += "status=" + str(status) + '&'
@@ -158,14 +188,19 @@ def led_put():
     if intensity is not None and int(intensity) in range(0, 101):
         queryString += "intensity=" + str(intensity) + '&'
 
+    # send our LED change request to the LED RPi
     r = requests.put(
         'http://' + str(ip) + ':' + str(port) +
         '/LED/change' + queryString)
     json_res = r.json()
 
+    # TODO: pass through LED RPi success/error to end user
     return make_response(jsonify({'success': 'yayyay'}), 201)
 
 
+# this is a helper function that extracts query params
+# from the end user's request for clean forwarding to
+# the LED RPi
 def getLEDParams(args, json):
     status, color, intensity = None, None, None
     if not args or 'status' not in args:
@@ -204,12 +239,18 @@ def getLEDParams(args, json):
     return status, color, intensity
 
 
+# this is a helper function that handles blanket 404 errors
 @app.errorhandler(404)
 def not_found(error):
-    return make_response(jsonify({'error': 'Not found'}), 404)
+    return make_response(jsonify({
+        'error': 'Invalid route. ' +
+        'See /info'
+    }), 404)
 
 
+# this class manages our zeroconf discovery of the LED RPi
 class MyListener(object):
+
     def __init__(self):
         self.ip, self.port, self.colors = None, None, None
 
@@ -223,7 +264,8 @@ class MyListener(object):
             pass
         elif "led_rpi_13" in name:
             ipv4_address = inet_ntoa(info.address)
-            colors_array = info.properties[b'colors'].decode('utf-8').split(',')
+            colors_array = info.properties[
+                b'colors'].decode('utf-8').split(',')
 
             self.port = info.port
             self.ip = ipv4_address
@@ -239,6 +281,9 @@ class MyListener(object):
     def getIP(self):
         return self.ip
 
+
+# this fn initializes our mongodb instance and collection
+# and adds a short list of usernames and passwords to it
 def init_auth_creds():
     client = pymongo.MongoClient("mongodb://localhost:27017/")
     db = client.auth
@@ -246,22 +291,27 @@ def init_auth_creds():
     operations = [
         # adds a username + password iff username does not already exist
         UpdateOne({"username": "admin"},
-            { "$setOnInsert": {"username": "admin", "password": "admin"} },
-            upsert=True),
+                  {"$setOnInsert":
+                   {"username": "admin", "password": "admin"}
+                   }, upsert=True),
         UpdateOne({"username": "guest"},
-            { "$setOnInsert": {"username": "guest", "password": "guest"} },
-            upsert=True),
+                  {"$setOnInsert":
+                   {"username": "guest", "password": "guest"}
+                   }, upsert=True),
         UpdateOne({"username": "alice"},
-            { "$setOnInsert": {"username": "alice", "password": "dogsRcool"} },
-            upsert=True),
+                  {"$setOnInsert":
+                   {"username": "alice", "password": "dogsRcool"}
+                   }, upsert=True),
         UpdateOne({"username": "bob"},
-            { "$setOnInsert": {"username": "bob", "password": "Baseb@ll!"} },
-            upsert=True)
+                  {"$setOnInsert":
+                   {"username": "bob", "password": "Baseb@ll!"}
+                   }, upsert=True)
     ]
     collection.bulk_write(operations)
+
 
 if __name__ == "__main__":
     init_auth_creds()
     listener = MyListener()
     browser = ServiceBrowser(Zeroconf(), "_http._tcp.local.", listener)
-    app.run(host='0.0.0.0', port=8080, debug=False)
+    app.run(host='0.0.0.0', port=8080, debug=True)
