@@ -23,7 +23,8 @@ app = Flask(__name__)
 # this helper fn compares provided usernames & known passwords
 @auth.get_password
 def get_password(username):
-    auth_pair = collection.find_one({"username": username})
+    coll = authenticator.getCollection()
+    auth_pair = coll.find_one({"username": username})
     if auth_pair:
         return auth_pair["password"]
     return None
@@ -142,11 +143,19 @@ def led_get():
         return make_response(jsonify({'error': 'LED RPi unavailable'}), 400)
 
     # send our request to LED RPi via its API
-    r = requests.put('http://' + str(ip) + ':' + str(port) + '/LED/info')
-    json_res = r.json()
+    try:
+        r = requests.get('http://' + str(ip) + ':' + str(port) + '/LED/info')
+        res_body = r.json()
+    except:
+        return make_response(jsonify({
+            'error': 'LED RPi appears to be offline. Please try again.'
+        }), 503)
 
     # pass this response to the end user
-    return make_response(json_res, 201)
+    if r.status_code == requests.codes.ok:
+        return make_response(jsonify(res_body), 201)
+    else:
+        return make_response(jsonify(res_body), 400)
 
 
 @app.route("/LED", methods=['PUT'])
@@ -186,7 +195,7 @@ def led_put():
     if color is not None:
         queryString += "color=" + str(color) + '&'
     if intensity is not None and int(intensity) in range(0, 101):
-        queryString += "intensity=" + str(intensity) + '&'
+        queryString += "intensity=" + str(intensity)
 
     # send our LED change request to the LED RPi
     r = requests.put(
@@ -284,34 +293,41 @@ class MyListener(object):
 
 # this fn initializes our mongodb instance and collection
 # and adds a short list of usernames and passwords to it
-def init_auth_creds():
-    client = pymongo.MongoClient("mongodb://localhost:27017/")
-    db = client.auth
-    collection = db.creds
-    operations = [
-        # adds a username + password iff username does not already exist
-        UpdateOne({"username": "admin"},
-                  {"$setOnInsert":
-                   {"username": "admin", "password": "admin"}
-                   }, upsert=True),
-        UpdateOne({"username": "guest"},
-                  {"$setOnInsert":
-                   {"username": "guest", "password": "guest"}
-                   }, upsert=True),
-        UpdateOne({"username": "alice"},
-                  {"$setOnInsert":
-                   {"username": "alice", "password": "dogsRcool"}
-                   }, upsert=True),
-        UpdateOne({"username": "bob"},
-                  {"$setOnInsert":
-                   {"username": "bob", "password": "Baseb@ll!"}
-                   }, upsert=True)
-    ]
-    collection.bulk_write(operations)
+class MyAuth(object):
+
+    def __init__(self):
+        self._client = pymongo.MongoClient("mongodb://localhost:27017/")
+        self._db = self._client.auth
+        self.collection = self._db.creds
+
+    # adds a username + password iff username does not already exist
+    def add_iff_dne(self):
+        operations = [
+            UpdateOne({"username": "admin"},
+                      {"$setOnInsert":
+                       {"username": "admin", "password": "admin"}
+                       }, upsert=True),
+            UpdateOne({"username": "guest"},
+                      {"$setOnInsert":
+                       {"username": "guest", "password": "guest"}
+                       }, upsert=True),
+            UpdateOne({"username": "alice"},
+                      {"$setOnInsert":
+                       {"username": "alice", "password": "dogsRcool"}
+                       }, upsert=True),
+            UpdateOne({"username": "bob"},
+                      {"$setOnInsert":
+                       {"username": "bob", "password": "Baseb@ll!"}
+                       }, upsert=True)
+        ]
+        self.collection.bulk_write(operations)
+
+    def getCollection(self):
+        return self.collection
 
 
 if __name__ == "__main__":
-    init_auth_creds()
+    authenticator = MyAuth()
     listener = MyListener()
     browser = ServiceBrowser(Zeroconf(), "_http._tcp.local.", listener)
-    app.run(host='0.0.0.0', port=8080, debug=True)
+    app.run(host='0.0.0.0', port=8080, debug=False)
