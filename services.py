@@ -22,9 +22,10 @@ COLORS_ALLOWED = None
 
 @auth.get_password
 def get_password(username):
-    if username == 'ben':
-        return 'jammin'
-    return None
+	auth_pair = collection.find_one({"username": username})
+	if auth_pair:
+		return auth_pair["password"]
+	return None
 
 @auth.error_handler
 def unauthorized():
