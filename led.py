@@ -36,9 +36,16 @@ def initializeLEDs():
     m.start(0)
 
 
+def resetFrequency():
+    p.ChangeFrequency(100)
+    w.ChangeFrequency(100)
+    m.ChangeFrequency(100)
+
+
 def setLEDW():
     # white LED - Waiting for command
     global INTENSITY
+    resetFrequency()
     p.ChangeDutyCycle(INTENSITY)
     w.ChangeDutyCycle(INTENSITY)
     m.ChangeDutyCycle(INTENSITY)
@@ -47,6 +54,7 @@ def setLEDW():
 def setLEDR():
     # red LED
     global INTENSITY
+    resetFrequency()
     p.ChangeDutyCycle(INTENSITY)
     w.ChangeDutyCycle(0)
     m.ChangeDutyCycle(0)
@@ -55,6 +63,7 @@ def setLEDR():
 def setLEDG():
     # green LED
     global INTENSITY
+    resetFrequency()
     p.ChangeDutyCycle(0)
     w.ChangeDutyCycle(INTENSITY)
     m.ChangeDutyCycle(0)
@@ -63,6 +72,7 @@ def setLEDG():
 def setLEDB():
     # blue LED
     global INTENSITY
+    resetFrequency()
     p.ChangeDutyCycle(0)
     w.ChangeDutyCycle(0)
     m.ChangeDutyCycle(INTENSITY)
@@ -71,6 +81,7 @@ def setLEDB():
 def setLEDM():
     # magenta LED
     global INTENSITY
+    resetFrequency()
     p.ChangeDutyCycle(INTENSITY)
     w.ChangeDutyCycle(0)
     m.ChangeDutyCycle(INTENSITY)
@@ -79,6 +90,7 @@ def setLEDM():
 def setLEDC():
     # cyan LED
     global INTENSITY
+    resetFrequency()
     p.ChangeDutyCycle(0)
     w.ChangeDutyCycle(INTENSITY)
     m.ChangeDutyCycle(INTENSITY)
@@ -87,6 +99,7 @@ def setLEDC():
 def setLEDY():
     # yellow LED
     global INTENSITY
+    resetFrequency()
     p.ChangeDutyCycle(INTENSITY)
     w.ChangeDutyCycle(INTENSITY)
     m.ChangeDutyCycle(0)
@@ -95,6 +108,7 @@ def setLEDY():
 def setLEDO():
     # orange LED
     global INTENSITY
+    resetFrequency()
     p.ChangeDutyCycle(INTENSITY)
     w.ChangeDutyCycle(INTENSITY*.25)
     m.ChangeDutyCycle(0)
@@ -103,9 +117,22 @@ def setLEDO():
 def setLEDP():
     # purple LED
     global INTENSITY
+    resetFrequency()
     p.ChangeDutyCycle(INTENSITY*.33)
     w.ChangeDutyCycle(0)
     m.ChangeDutyCycle(INTENSITY)
+
+
+def setLEDDisco():
+    # disco LED
+    global INTENSITY
+    p.ChangeDutyCycle(INTENSITY)
+    w.ChangeDutyCycle(INTENSITY)
+    m.ChangeDutyCycle(INTENSITY)
+
+    p.ChangeFrequency(2)
+    w.ChangeFrequency(4)
+    m.ChangeFrequency(8)
 
 
 @app.route("/LED/info", methods=['GET'])
@@ -141,6 +168,8 @@ def LED_Branch():
         setLEDO()
     elif COLOR == 'purple':
         setLEDP()
+    elif COLOR == 'disco':
+        setLEDDisco()
     else:
         abort(404)
 
