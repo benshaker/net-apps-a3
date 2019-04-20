@@ -5,6 +5,7 @@ import json
 import pymongo
 import requests
 
+from pymongo import UpdateOne
 from socket import inet_ntoa
 from six.moves import input
 from zeroconf import ServiceBrowser, Zeroconf
@@ -15,14 +16,6 @@ from flask_httpauth import HTTPBasicAuth
 auth = HTTPBasicAuth()
 app = Flask(__name__)
 
-client = pymongo.MongoClient("mongodb://localhost:27017/")
-db = client.database
-collection = db.creds
-collection.insert_many([
-    {"username": "admin", "password": "admin"},
-    {"username": "alice", "password": "dogsRcool"},
-    {"username": "bob", "password": "Baseb@ll!"}
-])
 
 # BEGIN AUTH
 
@@ -218,15 +211,11 @@ def not_found(error):
 
 class MyListener(object):
     def __init__(self):
-        self.ip = None
-        self.port = None
-        self.colors = None
+        self.ip, self.port, self.colors = None, None, None
 
     def remove_service(self, zeroconf, type, name):
-        self.ip = None
-        self.port = None
-        self.colors = None
-        print("Service %s removed" % (name,))
+        self.ip, self.port, self.colors = None, None, None
+        print("Service removed with name", name)
 
     def add_service(self, zeroconf, type, name):
         info = zeroconf.get_service_info(type, name)
@@ -250,8 +239,29 @@ class MyListener(object):
     def getIP(self):
         return self.ip
 
+def init_auth_creds():
+    client = pymongo.MongoClient("mongodb://localhost:27017/")
+    db = client.auth
+    collection = db.creds
+    operations = [
+        # adds a username + password iff username does not already exist
+        UpdateOne({"username": "admin"},
+            { "$setOnInsert": {"username": "admin", "password": "admin"} },
+            upsert=True),
+        UpdateOne({"username": "guest"},
+            { "$setOnInsert": {"username": "guest", "password": "guest"} },
+            upsert=True),
+        UpdateOne({"username": "alice"},
+            { "$setOnInsert": {"username": "alice", "password": "dogsRcool"} },
+            upsert=True),
+        UpdateOne({"username": "bob"},
+            { "$setOnInsert": {"username": "bob", "password": "Baseb@ll!"} },
+            upsert=True)
+    ]
+    collection.bulk_write(operations)
 
 if __name__ == "__main__":
+    init_auth_creds()
     listener = MyListener()
     browser = ServiceBrowser(Zeroconf(), "_http._tcp.local.", listener)
     app.run(host='0.0.0.0', port=8080, debug=False)
