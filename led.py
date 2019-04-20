@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # led.py
 import RPi.GPIO as GPIO
-from flask import Flask, request
+from flask import Flask, request, abort, jsonify
 from zeroconf import ServiceBrowser, Zeroconf
 
 app = Flask(__name__)
@@ -35,42 +35,49 @@ def initializeLEDs():
 	
 def setLEDW():
     # white LED - Waiting for command
+	global INTENSITY
 	p.ChangeDutyCycle(INTENSITY)
 	w.ChangeDutyCycle(INTENSITY)
 	m.ChangeDutyCycle(INTENSITY)
 
 def setLEDR():
     # red LED
+	global INTENSITY
 	p.ChangeDutyCycle(INTENSITY)
 	w.ChangeDutyCycle(0)
 	m.ChangeDutyCycle(0)
 
 def setLEDG():
     # green LED
+	global INTENSITY
 	p.ChangeDutyCycle(0)
 	w.ChangeDutyCycle(INTENSITY)
 	m.ChangeDutyCycle(0)
 
 def setLEDB():
     # blue LED
+	global INTENSITY
 	p.ChangeDutyCycle(0)
 	w.ChangeDutyCycle(0)
 	m.ChangeDutyCycle(INTENSITY)
 
 def setLEDM():
     # magenta LED
+	global INTENSITY
 	p.ChangeDutyCycle(INTENSITY)
 	w.ChangeDutyCycle(0)
 	m.ChangeDutyCycle(INTENSITY)
 
 def setLEDC():
     # cyan LED
+	global INTENSITY
 	p.ChangeDutyCycle(0)
 	w.ChangeDutyCycle(INTENSITY)
 	m.ChangeDutyCycle(INTENSITY)
 
 def setLEDY():
     # yellow LED
+	global INTENSITY
 	p.ChangeDutyCycle(INTENSITY)
 	w.ChangeDutyCycle(INTENSITY)
 	m.ChangeDutyCycle(0)
@@ -78,6 +85,8 @@ def setLEDY():
 	
 @app.route("/LED/info", methods=['GET'])
 def send_info():
+	global STATE, COLOR, INTENSITY
+	
 	info = {
 		'status': STATE,
 		'color': COLOR,
@@ -86,6 +95,8 @@ def send_info():
 	return jsonify(info), 200
 
 def LED_Branch():
+	global COLOR
+	
 	if COLOR == 'white':
 		setLEDW()
 	elif COLOR == 'red':
@@ -108,11 +119,15 @@ def change_LED():
 
 	#if not request.json or not 'title' in request.json:
     #    abort(400)
+	global STATE
+	global COLOR
+	global INTENSITY
+    
 	try:
 		newSTATE = request.json['status']
 	except:
 		newSTATE = None
-		
+	print(newSTATE)
 	try:
 		newCOLOR = request.json['color']
 	except:
@@ -169,10 +184,10 @@ class MyListener(object):
 		
 
 if __name__ == "__main__":
-	app.run(debug=False)
+	app.run(host='0.0.0.0', port=8080, debug=False)
 	zeroconf = Zeroconf()
 	listener = MyListener()
-	browser = ServiceBrowser(zeroconf, "", listener)
+	browser = ServiceBrowser(zeroconf, "_http._tcp.local", listener)
 	try:  
 		input("Press enter to exit...\n\n")
 	finally:  
