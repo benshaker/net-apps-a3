@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 # services.py
+#
+from servicesKeys import canvasAPIKey, canvasCourseID
 
 from flask_httpauth import HTTPBasicAuth
 auth = HTTPBasicAuth()
 
 from flask import Flask, jsonify, make_response, request, abort
 app = Flask(__name__)
+
+import requests, json
 
 # BEGIN AUTH
 
@@ -21,9 +25,48 @@ def unauthorized():
 
 # BEGIN APP
 
+# GET /api/v1/courses/:course_id/files
+#
+
 @app.route("/")
 def hello():
-    return "Hello World!"
+    # return "Hello World"
+    return jsonify({'error': 'No endpoint chosen.'})
+
+@app.route("/Canvas")
+def file_download():
+    if not request.args or not 'file' in request.args:
+        return jsonify({'error': 'No search term provided.'})
+    else:
+        searchTerm = request.args['file']
+
+    if searchTerm is None:
+        if not request.json or not 'file' in request.json:
+            return jsonify({'error': 'No search term provided.'})
+        else:
+            searchTerm = request.json['file']
+
+    r = requests.get('https://vt.instructure.com/api/v1/courses/' +
+                        canvasCourseID + '/files' +
+                        '?access_token=' + canvasAPIKey +
+                        '&search_term=' + searchTerm +
+                        '&sort=' + 'created_at' +
+                        '&order=' + 'desc')
+    json_res = r.json()
+
+    if not json_res:
+        return make_response(jsonify({'error': 'No matching files found.'}), 404)
+    if json_res:
+        doc = json_res[0]
+
+        doc_name = doc["display_name"]
+        doc_url = doc["url"]
+        r = requests.get(doc_url)
+        open(doc_name, 'wb').write(r.content)
+
+        msg = 'Saved the document titled \'' + doc_name + '\' locally on the Servives RPi.'
+
+    return make_response(jsonify({'success': msg}), 201)
 
 tasks = [
     {
@@ -51,6 +94,8 @@ def get_task(task_id):
     if len(task) == 0:
         abort(404)
     return jsonify({'task': task[0]})
+
+# curl -i -H "Content-Type: application/json" -X POST -d "{"title":"Read a book"}" http://localhost:5000/todo/api/v1.0/tasks
 
 @app.route('/todo/api/v1.0/tasks', methods=['POST'])
 def create_task():
