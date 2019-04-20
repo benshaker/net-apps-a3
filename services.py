@@ -286,8 +286,10 @@ class MyListener(object):
         self.ip, self.port, self.colors = None, None, None
 
     def remove_service(self, zeroconf, type, name):
-        self.ip, self.port, self.colors = None, None, None
-        print("Service removed with name", name)
+        if "led_rpi_13" not in name:
+            pass
+        elif "led_rpi_13" in name:
+            self.ip, self.port, self.colors = None, None, None
 
     def add_service(self, zeroconf, type, name):
         info = zeroconf.get_service_info(type, name)
