@@ -34,7 +34,7 @@ def get_password(username):
 @auth.error_handler
 def unauthorized():
     return make_response(jsonify({
-        'error': 'Unauthorized access attempt. ' +
+        'error': 'Unauthorized access attempted. ' +
         'Please provide valid credentials with your query.'
     }), 401)
 
@@ -121,7 +121,7 @@ def canvas_get():
 def led_info_get():
     colors_allowed = listener.getColors()
     return make_response(jsonify({
-        'success': 'GET /LED accepts no params. ' +
+        'success': 'GET /LED requires no params. ' +
         'PUT /LED accepts the following params: ' +
         '\'status\': [\'on\', \'off\'] (optional), ' +
         '\'color\': ' + str(colors_allowed) + ' (optional), ' +
@@ -148,7 +148,7 @@ def led_get():
     try:
         r = requests.get('http://' + str(ip) + ':' + str(port) + '/LED/info')
         res_body = r.json()
-    except:
+    except Exception:
         return make_response(jsonify({
             'error': 'LED RPi service is unavailable. Please try again.'
         }), 503)
@@ -176,83 +176,96 @@ def led_put():
             'error': 'LED RPi appears to be offline. Please try again.'
         }), 502)
 
-    # handle cases where no params are passed from end user req
+    # at least one paramater is required
     status, color, intensity = getLEDParams(request.args, request.json)
-    print(status, color, intensity)
-    if None not in (status, color, intensity):
+    if status or color or intensity is not None:
         pass
     else:
         return make_response(jsonify({
             'error': '/LED requires at least one param.' +
             'See /LED/info'}), 400)
 
-    # handle cases where the color request is not available
-    if color not in colors_allowed:
+    # handle invalid user request params
+    if status and status not in ("on", "off"):
         return make_response(jsonify({
-            'error': '/LED only accepts the following colors: ' +
+            'error': '/LED \'status\' only accepts the following options: ' +
+            '[\'on\', \'off\']'}), 400)
+
+    if color and color not in colors_allowed:
+        return make_response(jsonify({
+            'error': '/LED \'color\' only accepts the following options: ' +
             str(colors_allowed)}), 400)
+
+    try:
+        if intensity is not None:
+            intensity = int(intensity)
+    except Exception:
+        return make_response(jsonify({
+            'error': '/LED \'intensity\' only accepts the following options: ' +
+            'int(0 to 100)'}), 400)
+
+    if intensity and intensity not in range(0, 101):
+        return make_response(jsonify({
+            'error': '/LED \'intensity\' only accepts the following options: ' +
+            'int(0 to 100)'}), 400)
 
     # build the query string to be sent to the LED RPi
     queryString = "?"
-    if status is not None and status in ("on", "off"):
+    if status is not None:
         queryString += "status=" + str(status) + '&'
     if color is not None:
         queryString += "color=" + str(color) + '&'
-    if intensity is not None and int(intensity) in range(0, 101):
+    if intensity is not None:
         queryString += "intensity=" + str(intensity)
 
     # send our LED change request to the LED RPi
     try:
         r = requests.put(
-        'http://' + str(ip) + ':' + str(port) +
-        '/LED/change' + queryString)
-        json_res = r.json()
-    except:
+            'http://' + str(ip) + ':' + str(port) +
+            '/LED/change' + queryString)
+        res_body = r.json()
+    except Exception:
         return make_response(jsonify({
             'error': 'LED RPi service is unavailable. Please try again.'
         }), 503)
 
-    # TODO: pass through LED RPi success/error to end user
-    return make_response(jsonify({'success': 'yayyay'}), 201)
+    # pass this response to the end user
+    if r.status_code == requests.codes.ok:
+        return make_response(jsonify(res_body), 201)
+    else:
+        return make_response(jsonify(res_body), 400)
 
 
 # this is a helper function that extracts query params
 # from the end user's request for clean forwarding to
 # the LED RPi
 def getLEDParams(args, json):
-    status, color, intensity = None, None, None
+    status = None
     if not args or 'status' not in args:
-        return jsonify({'error': 'No params provided.'})
+        if not json or 'status' not in json:
+            pass
+        else:
+            status = json['status']
     else:
         status = args['status']
 
-    if status is None:
-        if not json or 'status' not in json:
-            return jsonify({'error': 'No params provided.'})
-        else:
-            status = json['status']
-
+    color = None
     if not args or 'color' not in args:
-        return jsonify({'error': 'No params provided.'})
+        if not json or 'color' not in json:
+            pass
+        else:
+            color = json['color']
     else:
         color = args['color']
 
-    if color is None:
-        if not json or 'color' not in json:
-            return jsonify({'error': 'No params provided.'})
-        else:
-            color = json['color']
-
+    intensity = None
     if not args or 'intensity' not in args:
-        return jsonify({'error': 'No params provided.'})
-    else:
-        intensity = args['intensity']
-
-    if intensity is None:
         if not json or 'intensity' not in json:
-            return jsonify({'error': 'No params provided.'})
+            pass
         else:
             intensity = json['intensity']
+    else:
+        intensity = args['intensity']
 
     return status, color, intensity
 
