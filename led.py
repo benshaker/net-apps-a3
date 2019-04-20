@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # led.py
+
 import RPi.GPIO as GPIO
 from flask import Flask, request, abort, jsonify, make_response
 from zeroconf import ServiceBrowser, Zeroconf
@@ -130,6 +131,7 @@ def setLEDDisco():
 
 
 def setLEDOFF():
+    # LED off entirely
     resetFrequency()
     p.ChangeDutyCycle(0)
     w.ChangeDutyCycle(0)
@@ -172,31 +174,24 @@ def LED_Branch():
     elif COLOR == 'disco':
         setLEDDisco()
     else:
-        abort(404)
+        return make_response(jsonify({
+                'error': 'Invalid color requested'}), 404)
 
 
 @app.route("/LED/change", methods=['PUT'])
 def change_LED():
 
-    global STATE
-    global COLOR
-    global INTENSITY
+    global STATE, COLOR, INTENSITY
 
-    try:
-        newSTATE = request.args['status']
-    except:
-        newSTATE = None
+    # at least one paramater is required
+    newSTATE, newCOLOR, newINTENSITY = getLEDParams(request.args, request.json)
+    if newSTATE or newCOLOR or newINTENSITY is not None:
+        pass
+    else:
+        return make_response(jsonify({
+            'error': '/LED/change requires at least one param.'}), 400)
 
-    try:
-        newCOLOR = request.args['color']
-    except:
-        newCOLOR = None
-
-    try:
-        newINTENSITY = int(request.args['intensity'])
-    except:
-        newINTENSITY = None
-
+    # LED should turn to ON from OFF
     if newSTATE == 'on' and STATE == 'off':
         STATE = newSTATE
         if newINTENSITY is not None:
@@ -208,22 +203,26 @@ def change_LED():
         else:
             COLOR = 'white'
         LED_Branch()
+    # LED should stay ON
     elif newSTATE == 'on' and STATE == 'on':
         if newINTENSITY is not None:
             INTENSITY = newINTENSITY
         if newCOLOR is not None:
             COLOR = newCOLOR
         LED_Branch()
+    # LED should turn OFF
     elif newSTATE == 'off':
         STATE = 'off'
         INTENSITY = 0
         COLOR = None
         setLEDOFF()
+    # LED state was not provided
     elif newSTATE is None:
         if STATE == 'on':
             pass
         elif STATE == 'off':
-            return make_response(jsonify({'error': 'LED cannot be updated in an \'off\' state'}), 200)
+            return make_response(jsonify({
+                'error': 'LED cannot be updated in an \'off\' state'}), 400)
 
         if newINTENSITY is not None:
             INTENSITY = newINTENSITY
@@ -231,9 +230,44 @@ def change_LED():
             COLOR = newCOLOR
         LED_Branch()
     else:
-        return make_response(jsonify({'error': 'Invalid combination attempted'}), 400)
+        return make_response(jsonify({
+            'error': 'Invalid combination attempted'}), 400)
 
-    return make_response(jsonify({'success': 'LED updated successfully'}), 200)
+    return make_response(jsonify({
+        'success': 'LED updated successfully'}), 200)
+
+
+# this is a helper function that extracts query params
+# from the Service RPi's request for use in LED update
+def getLEDParams(args, json):
+    status = None
+    if not args or 'status' not in args:
+        if not json or 'status' not in json:
+            pass
+        else:
+            status = json['status']
+    else:
+        status = args['status']
+
+    color = None
+    if not args or 'color' not in args:
+        if not json or 'color' not in json:
+            pass
+        else:
+            color = json['color']
+    else:
+        color = args['color']
+
+    intensity = None
+    if not args or 'intensity' not in args:
+        if not json or 'intensity' not in json:
+            pass
+        else:
+            intensity = json['intensity']
+    else:
+        intensity = args['intensity']
+
+    return status, color, intensity
 
 
 if __name__ == "__main__":
