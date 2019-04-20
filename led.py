@@ -20,7 +20,7 @@ m = GPIO.PWM(15, 50)
 
 # Info
 STATE = 'off'
-COLOR = ''
+COLOR = None
 INTENSITY = 0
 
 def setLEDOFF():
@@ -84,39 +84,77 @@ def send_info():
 		'intensity' = str(INTENSITY)
 	}
 	return jsonify(info), 200
+
+def LED_Branch():
+	if COLOR == 'white':
+		setLEDW()
+	elif COLOR == 'red':
+		setLEDR()
+	elif COLOR == 'green':
+		setLEDG()
+	elif COLOR == 'blue':
+		setLEDB()
+	elif COLOR == 'cyan':
+		setLEDC()
+	elif COLOR == 'magenta':
+		setLEDM()
+	elif COLOR == 'yellow':
+		setLEDY()
+	else:
+		abort(404)
 	
 @app.route("/LED/change", methods=['PUT'])
 def change_LED():
-	if not request.json or not 'title' in request.json:
-        abort(400)
-	STATE = request.json['status']
-	COLOR = request.json['color']
-	INTENSITY = int(request.json['intensity'])
+
+	#if not request.json or not 'title' in request.json:
+    #    abort(400)
+	try:
+		newSTATE = request.json['status']
+	except:
+		newSTATE = None
+		
+	try:
+		newCOLOR = request.json['color']
+	except:
+		newCOLOR = None
 	
-	if INTENSITY <= 100 and INTENSITY >= 0:	
-		if STATE == 'on':
-			if COLOR == 'white':
-				setLEDW()
-			elif COLOR == 'red':
-				setLEDR()
-			elif COLOR == 'green':
-				setLEDG()
-			elif COLOR == 'blue':
-				setLEDB()
-			elif COLOR == 'cyan':
-				setLEDC()
-			elif COLOR == 'magenta':
-				setLEDM()
-			elif COLOR == 'yellow':
-				setLEDY()
-			else:
-				abort(404)
-		elif STATE == 'off':
-			setLEDOFF()
+	try:
+		newINTENSITY = int(request.json['intensity'])
+	except:
+		newINTENSITY = None
+		
+	if newSTATE == 'on' and STATE == 'off':	
+		STATE = newSTATE
+		if newINTENSITY != None:
+			INTENSITY = newINTENSITY
 		else:
+			INTENSITY = 100
+		if newCOLOR != None:
+			COLOR = newCOLOR
+		else:
+			COLOR = 'white'
+		LED_Branch()
+	elif newSTATE == 'on' and STATE == 'on':
+		if newINTENSITY != None:
+			INTENSITY = newINTENSITY
+		if newCOLOR != None:
+			COLOR = newCOLOR
+		LED_Branch()
+	elif newSTATE == 'off':
+		STATE = 'off'
+		INTENSITY = 0
+		COLOR = None
+		setLEDOFF()
+	elif newSTATE == None:
+		if STATE == 'off':
 			abort(404)
-	else:
-		abort(404)
+			
+		if newINTENSITY != None:
+			INTENSITY = newINTENSITY
+		if newCOLOR != None:
+			COLOR = newCOLOR
+		LED_Branch()
+
 	return 200
     
 	
