@@ -24,12 +24,6 @@ COLOR = None
 INTENSITY = 0
 
 
-def setLEDOFF():
-    p.stop()
-    w.stop()
-    m.stop()
-
-
 def initializeLEDs():
     p.start(0)
     w.start(0)
@@ -133,6 +127,13 @@ def setLEDDisco():
     p.ChangeFrequency(2)
     w.ChangeFrequency(4)
     m.ChangeFrequency(8)
+
+
+def setLEDOFF():
+    resetFrequency()
+    p.ChangeDutyCycle(0)
+    w.ChangeDutyCycle(0)
+    m.ChangeDutyCycle(0)
 
 
 @app.route("/LED/info", methods=['GET'])
