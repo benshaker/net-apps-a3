@@ -43,7 +43,7 @@ def unauthorized():
 
 @app.route("/")
 # @auth.login_required
-def root():
+def root_get():
     return jsonify({'error': 'No endpoint chosen. See /info'})
 
 
@@ -59,7 +59,7 @@ def root_info():
 
 @app.route("/Canvas")
 @auth.login_required
-def file_download():
+def file_get():
     if not request.args or 'file' not in request.args:
         return jsonify({'error': 'No search term provided (use ?file=).'})
     else:
@@ -111,7 +111,7 @@ def led_info():
 
 @app.route("/LED", methods=['GET'])
 @auth.login_required
-def led_info():
+def led_get():
     ip = listener.getIP()
     port = listener.getPort()
     colors_allowed = listener.getColors()
@@ -130,7 +130,7 @@ def led_info():
 
 @app.route("/LED", methods=['PUT'])
 @auth.login_required
-def led_modify():
+def led_put():
     ip = listener.getIP()
     port = listener.getPort()
     colors_allowed = listener.getColors()
