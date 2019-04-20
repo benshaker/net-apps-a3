@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # led.py
 import RPi.GPIO as GPIO
-from flask import Flask, request, abort, jsonify
+from flask import Flask, request, abort, jsonify, make_response
 from zeroconf import ServiceBrowser, Zeroconf
 
 app = Flask(__name__)
@@ -14,9 +14,9 @@ GPIO.setmode(GPIO.BOARD)
 GPIO.setup(11, GPIO.OUT) # Red
 GPIO.setup(13, GPIO.OUT) # Green
 GPIO.setup(15, GPIO.OUT) # Blue
-p = GPIO.PWM(11, 50)
-w = GPIO.PWM(13, 50)
-m = GPIO.PWM(15, 50)
+p = GPIO.PWM(11, 100)
+w = GPIO.PWM(13, 100)
+m = GPIO.PWM(15, 100)
 
 # Info
 STATE = 'off'
@@ -46,6 +46,8 @@ def setLEDR():
 	p.ChangeDutyCycle(INTENSITY)
 	w.ChangeDutyCycle(0)
 	m.ChangeDutyCycle(0)
+	
+	print("5", INTENSITY)
 
 def setLEDG():
     # green LED
@@ -82,6 +84,20 @@ def setLEDY():
 	w.ChangeDutyCycle(INTENSITY)
 	m.ChangeDutyCycle(0)
 	
+def setLEDO():
+    # orange LED
+	global INTENSITY
+	p.ChangeDutyCycle(INTENSITY)
+	w.ChangeDutyCycle(INTENSITY*.25)
+	m.ChangeDutyCycle(0)
+	
+def setLEDP():
+	# purple LED
+	global INTENSITY
+	p.ChangeDutyCycle(INTENSITY*.33)
+	w.ChangeDutyCycle(0)
+	m.ChangeDutyCycle(INTENSITY)
+	
 	
 @app.route("/LED/info", methods=['GET'])
 def send_info():
@@ -97,6 +113,8 @@ def send_info():
 def LED_Branch():
 	global COLOR
 	
+	print("4", COLOR)
+	
 	if COLOR == 'white':
 		setLEDW()
 	elif COLOR == 'red':
@@ -111,6 +129,10 @@ def LED_Branch():
 		setLEDM()
 	elif COLOR == 'yellow':
 		setLEDY()
+	elif COLOR == 'orange':
+		setLEDO()
+	elif COLOR == 'purple':
+		setLEDP()
 	else:
 		abort(404)
 	
@@ -124,30 +146,33 @@ def change_LED():
 	global INTENSITY
     
 	try:
-		newSTATE = request.json['status']
+		newSTATE = request.args['status']
 	except:
 		newSTATE = None
 	print(newSTATE)
 	try:
-		newCOLOR = request.json['color']
+		newCOLOR = request.args['color']
 	except:
 		newCOLOR = None
-	
+	print(newCOLOR)
 	try:
-		newINTENSITY = int(request.json['intensity'])
+		newINTENSITY = int(request.args['intensity'])
 	except:
 		newINTENSITY = None
-		
+	print(newINTENSITY)
 	if newSTATE == 'on' and STATE == 'off':	
 		STATE = newSTATE
+		print("1", STATE)
 		if newINTENSITY != None:
 			INTENSITY = newINTENSITY
 		else:
 			INTENSITY = 100
+		print("2", INTENSITY)
 		if newCOLOR != None:
 			COLOR = newCOLOR
 		else:
 			COLOR = 'white'
+		print("3", COLOR)
 		LED_Branch()
 	elif newSTATE == 'on' and STATE == 'on':
 		if newINTENSITY != None:
@@ -169,10 +194,13 @@ def change_LED():
 		if newCOLOR != None:
 			COLOR = newCOLOR
 		LED_Branch()
+	else:
+		abort(404)
 
-	return 200
-    
-	
+	print("6: EXIT") 
+	return make_response(jsonify({'success': 'yay'})), 200
+
+"""
 class MyListener(object):  
     def remove_service(self, zeroconf, type, name):
         print("Service %s removed" % (name,))
@@ -181,10 +209,12 @@ class MyListener(object):
         info = zeroconf.get_service_info(type, name)
         # print name, info.get_name(), info.server,
         print(name, info)
-		
+"""	
 
 if __name__ == "__main__":
+	initializeLEDs()
 	app.run(host='0.0.0.0', port=8080, debug=False)
+	"""
 	zeroconf = Zeroconf()
 	listener = MyListener()
 	browser = ServiceBrowser(zeroconf, "_http._tcp.local", listener)
@@ -192,4 +222,4 @@ if __name__ == "__main__":
 		input("Press enter to exit...\n\n")
 	finally:  
 		zeroconf.close()
-	# ?
+	"""
